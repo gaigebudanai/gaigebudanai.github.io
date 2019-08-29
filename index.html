@@ -152,6 +152,251 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-springBoot-整合rabbitMQ-实现防止消息丢失" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2019/08/29/springBoot-整合rabbitMQ-实现防止消息丢失/">springBoot 整合rabbitMQ 实现防止消息丢失</a>
+    </h1>
+  
+
+        
+        <a href="/2019/08/29/springBoot-整合rabbitMQ-实现防止消息丢失/" class="archive-article-date">
+  	<time datetime="2019-08-29T15:31:20.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-08-29</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <a id="more"></a>
+
+<p>springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息<br>置顶 2018年11月05日 16:38:35 huan_1993 阅读数 776更多<br>分类专栏： springboot  rabbitmq<br>版权声明：本文为博主原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接和本声明。<br>本文链接：<a href="https://blog.csdn.net/fu_huo_1993/article/details/88224985" target="_blank" rel="noopener">https://blog.csdn.net/fu_huo_1993/article/details/88224985</a><br>    在上篇文章  springboot 整合 rabbitmq 中，我们实现了springboot 和rabbitmq的简单整合，这篇文章主要是对上篇文章功能的增强，主要完成如下功能。</p>
+<p>需求：<br>    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的消息，发送一条不可路由到消息队列中的消息，使之进入 alternate-exchange 交换器中。接收方在接收到消息后，随机拒绝一些消息，使之进入 x-dead-letter-exchange 中。</p>
+<p>实现如下功能：<br>  1、使用@Bean方式自动实现队列、交换器、绑定的创建。<br>  2、使用@RabbitListener实现队列消息的监听。<br>  3、实现生产者消息确认。<br>  4、实现死信交换器（过期的消息、basic.nack或basic.reject且requeue参数为false或队列满的消息将进入此交换器）。<br>  5、实现备份交换器(alternate-exchange)，未被正确路由的消息将会经过此交换器。</p>
+<p>部分功能实现要点：<br>  1、生产者消息确认</p>
+<pre><code>|- spring.rabbitmq.template.mandatory = true 设置成true
+
+|- spring.rabbitmq.publisher-confirms = true 设置成true
+
+|- 编写一个 java 类，实现 RabbitTemplate.ConfirmCallback 接口，在这个里面我们可以确认消息是否到达了RabbitMQ服务器。</code></pre><p>  2、死信交换器的实现</p>
+<pre><code>|- 申明队列的时候设置 x-dead-letter-exchange 参数</code></pre><p>  3、处理未被路由的消息</p>
+<pre><code>|- 申明交换器的时候设置 alternate-exchange 参数</code></pre><p>实现步骤如下：<br>  1、jar包的引入，生产者和消费者都一样<br><dependencies><br>        <dependency><br>            <groupid>org.springframework.boot</groupid><br>            <artifactid>spring-boot-starter-amqp</artifactid><br>        </dependency><br>        <dependency><br>            <groupid>org.springframework.boot</groupid><br>            <artifactid>spring-boot-starter-web</artifactid><br>        </dependency></dependencies></p>
+<pre><code>    &lt;dependency&gt;
+        &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+        &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+        &lt;optional&gt;true&lt;/optional&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+        &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+&lt;/dependencies&gt;</code></pre><p> 2、生产者 - 配置文件<br>server:<br>  port: 9088<br>spring:<br>  rabbitmq:<br>    host: 140.143.237.224<br>    port: 5672<br>    username: root<br>    password: root<br>    virtual-host: /<br>    connection-timeout: 10000<br>    template:<br>      mandatory: true<br>    publisher-confirms: true<br>   注意：此处需要将 mandatory和publisher-confirms参数设置成true</p>
+<p>  3、生产者 - 生产者消息确认编写<br>@Slf4j<br>public class RabbitConfirmCallback implements RabbitTemplate.ConfirmCallback {</p>
+<pre><code>@Override
+public void confirm(CorrelationData correlationData, boolean ack, String cause) {
+    log.info(&quot;(start)生产者消息确认=========================&quot;);
+    log.info(&quot;correlationData:[{}]&quot;, correlationData);
+    log.info(&quot;ack:[{}]&quot;, ack);
+    log.info(&quot;cause:[{}]&quot;, cause);
+    if (!ack) {
+        log.info(&quot;消息可能未到达rabbitmq服务器&quot;);
+    }
+    log.info(&quot;(end)生产者消息确认=========================&quot;);
+}</code></pre><p>}<br>   注意：此处需要实现 RabbitTemplate.ConfirmCallback接口，实现消息的确认</p>
+<p>  4、生产者 - 生产者配置<br>@Configuration<br>public class RabbitmqConfiguration {</p>
+<pre><code>@Autowired
+private RabbitTemplate rabbitTemplate;
+
+@PostConstruct
+public void initRabbitTemplate() {
+    // 设置生产者消息确认
+    rabbitTemplate.setConfirmCallback(new RabbitConfirmCallback());
+}
+
+/**
+ * 申明队列
+ *
+ * @return
+ */
+@Bean
+public Queue queue() {
+    Map&lt;String, Object&gt; arguments = new HashMap&lt;&gt;(4);
+    // 申明死信交换器
+    arguments.put(&quot;x-dead-letter-exchange&quot;, &quot;exchange-dlx&quot;);
+    return new Queue(&quot;queue-rabbit-springboot-advance&quot;, true, false, false, arguments);
+}
+
+/**
+ * 没有路由到的消息将进入此队列
+ *
+ * @return
+ */
+@Bean
+public Queue unRouteQueue() {
+    return new Queue(&quot;queue-unroute&quot;);
+}
+
+/**
+ * 死信队列
+ *
+ * @return
+ */
+@Bean
+public Queue dlxQueue() {
+    return new Queue(&quot;dlx-queue&quot;);
+}
+
+/**
+ * 申明交换器
+ *
+ * @return
+ */
+@Bean
+public Exchange exchange() {
+    Map&lt;String, Object&gt; arguments = new HashMap&lt;&gt;(4);
+    // 当发往exchange-rabbit-springboot-advance的消息,routingKey和bindingKey没有匹配上时，将会由exchange-unroute交换器进行处理
+    arguments.put(&quot;alternate-exchange&quot;, &quot;exchange-unroute&quot;);
+    return new DirectExchange(&quot;exchange-rabbit-springboot-advance&quot;, true, false, arguments);
+}
+
+@Bean
+public FanoutExchange unRouteExchange() {
+    // 此处的交换器的名字要和 exchange() 方法中 alternate-exchange 参数的值一致
+    return new FanoutExchange(&quot;exchange-unroute&quot;);
+}
+
+/**
+ * 申明死信交换器
+ *
+ * @return
+ */
+@Bean
+public FanoutExchange dlxExchange() {
+    return new FanoutExchange(&quot;exchange-dlx&quot;);
+}
+
+/**
+ * 申明绑定
+ *
+ * @return
+ */
+@Bean
+public Binding binding() {
+    return BindingBuilder.bind(queue()).to(exchange()).with(&quot;product&quot;).noargs();
+}
+
+@Bean
+public Binding unRouteBinding() {
+    return BindingBuilder.bind(unRouteQueue()).to(unRouteExchange());
+}
+
+@Bean
+public Binding dlxBinding() {
+    return BindingBuilder.bind(dlxQueue()).to(dlxExchange());
+}</code></pre><p>}<br>   注意：x-dead-letter-exchange和alternate-exchange参数的值和交换器中的值需要保持一致</p>
+<p> 5、生产者 - 编写消息发送者<br>@Component<br>@Slf4j<br>public class RabbitProducer implements ApplicationListener<contextrefreshedevent> {</contextrefreshedevent></p>
+<pre><code>@Autowired
+private RabbitTemplate rabbitTemplate;
+
+@Override
+public void onApplicationEvent(ContextRefreshedEvent event) {
+    String exchange = &quot;exchange-rabbit-springboot-advance&quot;;
+    String routingKey = &quot;product&quot;;
+    String unRoutingKey = &quot;norProduct&quot;;
+
+    // 1.发送一条正常的消息 CorrelationData唯一（可以在ConfirmListener中确认消息）
+    IntStream.rangeClosed(0, 10).forEach(num -&gt; {
+        String message = LocalDateTime.now().toString() + &quot;发送第&quot; + (num + 1) + &quot;条消息.&quot;;
+        rabbitTemplate.convertAndSend(exchange, routingKey, message, new CorrelationData(&quot;routing&quot; + UUID.randomUUID().toString()));
+        log.info(&quot;发送一条消息,exchange:[{}],routingKey:[{}],message:[{}]&quot;, exchange, routingKey, message);
+    });
+    // 2.发送一条未被路由的消息，此消息将会进入备份交换器（alternate exchange）
+    String message = LocalDateTime.now().toString() + &quot;发送一条消息.&quot;;
+    rabbitTemplate.convertAndSend(exchange, unRoutingKey, message, new CorrelationData(&quot;unRouting-&quot; + UUID.randomUUID().toString()));
+    log.info(&quot;发送一条消息,exchange:[{}],routingKey:[{}],message:[{}]&quot;, exchange, unRoutingKey, message);
+}</code></pre><p>}<br>    注意：1、此处发送了2中消息，一种消息可以被正确的路由到消息队列中，另一种由于routingKey是不存在的，因此不会路由到队列中，观察这条消息有没有路由到 alternate-exchange 绑定的队列中。</p>
+<pre><code>2、CorrelationData数据需要唯一，此值可用于生产者确认消息。</code></pre><p>  6、生产者 - 启动类<br>@SpringBootApplication<br>public class ProducerApplication {</p>
+<pre><code>public static void main(String[] args) {
+    SpringApplication.run(ProducerApplication.class, args);
+}</code></pre><p>}</p>
+<p>  7、消费者  - 配置文件<br>server:<br>  port: 9087<br>spring:<br>  rabbitmq:<br>    host: 140.143.237.224<br>    port: 5672<br>    username: root<br>    password: root<br>    virtual-host: /<br>    connection-timeout: 10000<br>    listener:<br>      simple:<br>        acknowledge-mode: manual # 手动应答<br>        auto-startup: true<br>        default-requeue-rejected: false # 不重回队列<br>        concurrency: 5<br>        max-concurrency: 20<br>        prefetch: 1 # 每次只处理一个信息<br>        retry:<br>          enabled: true</p>
+<p>  8、消费者 - 消息接收<br>@Component<br>@Slf4j<br>public class RabbitConsumer {</p>
+<pre><code>/**
+ * 监听 queue-rabbit-springboot-advance 队列
+ *
+ * @param receiveMessage 接收到的消息
+ * @param message
+ * @param channel
+ */
+@RabbitListener(queues = &quot;queue-rabbit-springboot-advance&quot;)
+public void receiveMessage(String receiveMessage, Message message, Channel channel) {
+    try {
+        // 手动签收
+        log.info(&quot;接收到消息:[{}]&quot;, receiveMessage);
+        if (new Random().nextInt(10) &lt; 5) {
+            log.warn(&quot;拒绝一条信息:[{}]，此消息将会由死信交换器进行路由.&quot;, receiveMessage);
+            channel.basicNack(message.getMessageProperties().getDeliveryTag(), false, false);
+        } else {
+            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+        }
+    } catch (Exception e) {
+        log.info(&quot;接收到消息之后的处理发生异常.&quot;, e);
+        try {
+            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+        } catch (IOException e1) {
+            log.error(&quot;签收异常.&quot;, e1);
+        }
+    }
+}</code></pre><p>}<br>   注意：消费者接收中会随机拒绝几条消息，观察这个消息有没有进入 x-dead-letter-exchange 交换器绑定的队列中。</p>
+<p>  9、执行结果</p>
+<p>完整代码：<br>代码如下：<a href="https://gitee.com/huan1993/rabbitmq/tree/master/rabbitmq-springboot-advanced" target="_blank" rel="noopener">https://gitee.com/huan1993/rabbitmq/tree/master/rabbitmq-springboot-advanced</a></p>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2019/08/29/springBoot-整合rabbitMQ-实现防止消息丢失/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-myhexo" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
