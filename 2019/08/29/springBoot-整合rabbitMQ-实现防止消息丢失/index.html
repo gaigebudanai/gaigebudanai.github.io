@@ -8,17 +8,17 @@
   <link rel="dns-prefetch" href="http://yoursite.com">
   <title>springBoot 整合rabbitMQ 实现防止消息丢失 | 桓彦的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息置顶 2018年11月05日 16:38:35 huan_1993 阅读数 776更多分类专栏： springboot  rabbitmq版权声明：本文为博主原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接和本声明。本文链接：https://blog.csdn.net/fu_hu">
+  <meta name="description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息 需求：    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的">
 <meta property="og:type" content="article">
 <meta property="og:title" content="springBoot 整合rabbitMQ 实现防止消息丢失">
 <meta property="og:url" content="http://yoursite.com/2019/08/29/springBoot-整合rabbitMQ-实现防止消息丢失/index.html">
 <meta property="og:site_name" content="桓彦的博客">
-<meta property="og:description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息置顶 2018年11月05日 16:38:35 huan_1993 阅读数 776更多分类专栏： springboot  rabbitmq版权声明：本文为博主原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接和本声明。本文链接：https://blog.csdn.net/fu_hu">
+<meta property="og:description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息 需求：    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2019-08-29T15:33:30.909Z">
+<meta property="og:updated_time" content="2019-08-30T17:27:58.365Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="springBoot 整合rabbitMQ 实现防止消息丢失">
-<meta name="twitter:description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息置顶 2018年11月05日 16:38:35 huan_1993 阅读数 776更多分类专栏： springboot  rabbitmq版权声明：本文为博主原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接和本声明。本文链接：https://blog.csdn.net/fu_hu">
+<meta name="twitter:description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息 需求：    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的">
   
     <link rel="alternative" href="/atom.xml" title="桓彦的博客" type="application/atom+xml">
   
@@ -174,11 +174,9 @@
     
     <div class="article-entry" itemprop="articleBody">
       
-        <a id="more"></a>
-
-<p>springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息<br>置顶 2018年11月05日 16:38:35 huan_1993 阅读数 776更多<br>分类专栏： springboot  rabbitmq<br>版权声明：本文为博主原创文章，遵循 CC 4.0 BY-SA 版权协议，转载请附上原文出处链接和本声明。<br>本文链接：<a href="https://blog.csdn.net/fu_huo_1993/article/details/88224985" target="_blank" rel="noopener">https://blog.csdn.net/fu_huo_1993/article/details/88224985</a><br>    在上篇文章  springboot 整合 rabbitmq 中，我们实现了springboot 和rabbitmq的简单整合，这篇文章主要是对上篇文章功能的增强，主要完成如下功能。</p>
+        <p>springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息</p>
 <p>需求：<br>    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的消息，发送一条不可路由到消息队列中的消息，使之进入 alternate-exchange 交换器中。接收方在接收到消息后，随机拒绝一些消息，使之进入 x-dead-letter-exchange 中。</p>
-<p>实现如下功能：<br>  1、使用@Bean方式自动实现队列、交换器、绑定的创建。<br>  2、使用@RabbitListener实现队列消息的监听。<br>  3、实现生产者消息确认。<br>  4、实现死信交换器（过期的消息、basic.nack或basic.reject且requeue参数为false或队列满的消息将进入此交换器）。<br>  5、实现备份交换器(alternate-exchange)，未被正确路由的消息将会经过此交换器。</p>
+<p>实现如下功能：<br>  1、使用@Bean方式自动实现队列、交换器、绑定的创建。<br>  2、使用@RabbitListener实现队列消息的监听。<br>  3、实现生产者消息确认。<br>  4、实现死信交换器（过期的消息、basic.nack或basic.reject且requeue参数为false或队列满的消息将进入此交换器）。<br>  5、实现备份交换器(alternate-exchange)，未被正确路由的消息将会经过此交换器。<br>  <a id="more"></a></p>
 <p>部分功能实现要点：<br>  1、生产者消息确认</p>
 <pre><code>|- spring.rabbitmq.template.mandatory = true 设置成true
 
