@@ -9,13 +9,14 @@
   <title>springBoot 整合rabbitMQ 实现防止消息丢失 | 桓彦的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息 需求：    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的">
+<meta name="keywords" content="rabbitmq 防止消息丢失">
 <meta property="og:type" content="article">
 <meta property="og:title" content="springBoot 整合rabbitMQ 实现防止消息丢失">
 <meta property="og:url" content="http://yoursite.com/2019/08/29/springBoot-整合rabbitMQ-实现防止消息丢失/index.html">
 <meta property="og:site_name" content="桓彦的博客">
 <meta property="og:description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息 需求：    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2019-08-30T17:27:58.365Z">
+<meta property="og:updated_time" content="2019-08-31T16:29:18.420Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="springBoot 整合rabbitMQ 实现防止消息丢失">
 <meta name="twitter:description" content="springboot整合rabbitmq实现生产者消息确认、死信交换器、未路由到队列的消息 需求：    生产者在启动的时候，自动创建好队列、绑定、交换器并设置好 死信交换器、备份交换器(alternate-exchange)。生产者发送消息后，生产者这边需要对发送的消息进行确认，确认RabbitMQ接收到了消息。为了测试未被路由的消息和死信消息，发送方，发送11条正常的，可以被路由到消息队列中的">
@@ -363,6 +364,17 @@ public void receiveMessage(String receiveMessage, Message message, Channel chann
     <div class="article-info article-info-index">
       
       
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color1">rabbitmq 防止消息丢失</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
       
 
       
@@ -426,6 +438,15 @@ public void receiveMessage(String receiveMessage, Message message, Channel chann
 
   
 <nav id="article-nav">
+  
+    <a href="/2019/08/31/接口文档注解备忘/" id="article-nav-newer" class="article-nav-link-wrap">
+      <i class="icon-circle-left"></i>
+      <div class="article-nav-title">
+        
+          接口文档注解备忘
+        
+      </div>
+    </a>
   
   
     <a href="/2019/08/22/myhexo/" id="article-nav-older" class="article-nav-link-wrap">
@@ -557,6 +578,14 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
               <li class="article-tag-list-item">
                 <a href="javascript:void(0)" class="js-tag color2">一些新手命令</a>
               </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color4">丝袜哥</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color1">rabbitmq 防止消息丢失</a>
+              </li>
             
             <div class="clearfix"></div>
           </ul>
@@ -614,22 +643,6 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
               <a href="http://localhost:4000/" target="_blank" class="search-title"><i class="icon-quo-left icon"></i>友情链接2</a>
             </li>
           
-            <li class="search-li">
-              <a href="http://localhost:4000/" target="_blank" class="search-title"><i class="icon-quo-left icon"></i>友情链接3</a>
-            </li>
-          
-            <li class="search-li">
-              <a href="http://localhost:4000/" target="_blank" class="search-title"><i class="icon-quo-left icon"></i>友情链接4</a>
-            </li>
-          
-            <li class="search-li">
-              <a href="http://localhost:4000/" target="_blank" class="search-title"><i class="icon-quo-left icon"></i>友情链接5</a>
-            </li>
-          
-            <li class="search-li">
-              <a href="http://localhost:4000/" target="_blank" class="search-title"><i class="icon-quo-left icon"></i>友情链接6</a>
-            </li>
-          
         </ul>
   		
     	</section>
@@ -638,7 +651,7 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
     
     	<section class="tools-section tools-section-me" q-show="aboutme">
   	  	
-  	  		<div class="aboutme-wrap" id="js-aboutme">很惭愧&lt;br&gt;&lt;br&gt;只做了一点微小的工作&lt;br&gt;谢谢大家</div>
+  	  		<div class="aboutme-wrap" id="js-aboutme">仅供个人学习提升博客,有些资源转自网络 如有侵权版权 请告知删除!</div>
   	  	
     	</section>
     
